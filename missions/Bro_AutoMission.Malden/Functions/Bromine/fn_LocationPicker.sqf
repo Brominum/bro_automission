@@ -1,0 +1,35 @@
+{playSound3D [(selectRandom [getMissionPath "sounds\radio1.ogg",getMissionPath "sounds\radio2.ogg",getMissionPath "sounds\radio3.ogg",getMissionPath "sounds\radio4.ogg"]), _x];} forEach [control_laptop,heli_1,heli_2,heli_3];
+deleteMarker "ObjMarker1";
+deleteMarker "ObjMarker2";
+deleteMarker "ObjMarker3";
+deleteMarker "ObjMarker4";
+{deleteVehicle _x} forEach units regrp;
+{deleteVehicle _x} forEach units regrp2;
+{deleteVehicle _x} forEach units regrp3;
+{deleteVehicle _x} forEach units regrp4;
+{deleteVehicle _x} forEach units regrp5;
+{deleteVehicle _x} forEach units civgrp;
+{deleteVehicle _x} forEach units civgrp2;
+{deleteVehicle _x} forEach units civgrp3;
+{deleteVehicle _x} forEach units civgrp4;
+{deleteVehicle _x} forEach allDeadMen;
+if (alive ObjVic) then {deleteVehicle objVic};
+if (alive ObjVic2) then {deleteVehicle objVic2};
+if (alive ObjVic3) then {deleteVehicle objVic3};
+if (alive ReinfVic) then {deleteVehicle ReinfVic};
+if (alive objCache) then {deleteVehicle objCache};
+while {(count (waypoints regrp)) > 0} do {deleteWaypoint ((waypoints regrp) select 0);};
+while {(count (waypoints regrp2)) > 0} do {deleteWaypoint ((waypoints regrp2) select 0);};
+while {(count (waypoints regrp3)) > 0} do {deleteWaypoint ((waypoints regrp3) select 0);};
+while {(count (waypoints regrp4)) > 0} do {deleteWaypoint ((waypoints regrp4) select 0);};
+while {(count (waypoints regrp5)) > 0} do {deleteWaypoint ((waypoints regrp5) select 0);};
+ObjMarker1 = createMarker ["ObjMarker1",[-50000,-50000,0]];
+ObjMarker2 = createMarker ["ObjMarker2",[50000,50000,0]];
+ObjMarker3 = createMarker ["ObjMarker3",[-50000,50000,0]];
+ObjMarker4 = createMarker ["ObjMarker4",[50000,-50000,0]];
+remoteExec ["bro_fnc_MakeNewObjective", 2];
+switch ([1,2] selectRandomWeighted [0.33,0.67]) do
+{
+	case 1: {remoteExec ["bro_fnc_CivilianAdder", 2];};
+	case 2: {};
+};

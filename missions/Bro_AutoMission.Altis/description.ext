@@ -1,0 +1,35 @@
+loadScreen = "images\Load_icon.jpg";
+respawn = "BASE";
+respawndelay = "5";
+disabledAI = 1;
+author = "Brominum";
+onLoadName = "AutoMission: Altis";
+onLoadMission = "Public Release 1.0 (13DEC2024)";
+respawnTemplates[] = { "MenuPosition", "Spectator" };
+respawnOnStart = -1;
+class CfgWorlds {
+	class Any {
+		author = "Brominum";
+		description = "AutoMission: Altis";
+		pictureMap = "images\Load_background.jpg";
+		pictureShot = "images\Load_background.jpg";
+		loadingTexts[] = {"Use the computer or helicopters to request a new objective! Helicopters have ACE Arsenal!"};
+	};
+};
+class CfgFunctions {
+	class Bro {
+		class Bromine {
+			class MakeNewObjective{};
+			class LocationPicker{};
+			class CivilianAdder{};
+			class Reinforcements{};
+			class ActionSetup{};
+			class Teleport{};
+		};
+	};
+};
+class Header {
+	gameType = Coop;
+	minPlayers = 1;
+	maxPlayers = 51;
+};
