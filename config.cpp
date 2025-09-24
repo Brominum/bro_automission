@@ -29,12 +29,14 @@ class CfgMissions {
 		};
 	};
 };
-class CfgFunctions {
-	class Bro {
-		class Automission {
-			class Automission_Module {
-				file="\bro_automission\functions\automission\fn_automission_module.sqf";
-			};
+class CfgFunctions  {
+	class bro  {
+		class bro_automission {
+			file = "\Bro_Automission\functions";
+			class autoMission_make {};
+			class autoMission_select {};
+			class buildingFinder {};
+			class setSkills {};
 		};
 	};
 };
@@ -48,7 +50,7 @@ class CfgVehicles {
 		displayName="Automission Generator";
 		portrait="\a3\modules_f_curator\data\portraitobjective_ca.paa";
 		category="Objectives";
-		function="Bro_fnc_automission_module";
+		function="bro_fnc_autoMission_select";
 		is3DEN=0;
 		ammo="";
 	};

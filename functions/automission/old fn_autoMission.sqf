@@ -1,7 +1,36 @@
+bro_fnc_buildingFinder = {
+	params [["_garrCount",6]];
+	systemChat format ["garrCount value: %1",_garrCount];	// DEBUG LINE
+		if (_garrCount < 2) exitWith {
+			systemChat "Garrison count needs to be 2 or higher. Function aborted.";
+		};
+		private _masterlist = nearestObjects [[(worldSize/2),(worldSize/2)],["HOUSE"],(worldSize / 2),true];
+		private _b2del = [];
+		private _bblackl = ["Land_Pier_F","Land_nav_pier_m_F","Land_Pier_small_F","Land_PierWooden_02_16m_F","Land_PierWooden_02_barrel_F","Land_PierWooden_02_hut_F","Land_PierWooden_01_10m_noRails_F","Land_PierWooden_01_16m_F","Land_PierWooden_01_dock_F","Land_PierWooden_01_hut_F","Land_PierWooden_01_ladder_F","Land_PierWooden_01_platform_F","Land_PierWooden_02_30deg_F","Land_dp_bigTank_F","Land_dp_bigTank_old_F","Land_StorageTank_01_large_F","Land_ContainerLine_03_F","Land_ContainerLine_02_F","Land_ContainerLine_01_F","Land_Warehouse_01_F","Land_Warehouse_02_F","Land_MultistoryBuilding_04_F","Land_MultistoryBuilding_01_F","Land_MultistoryBuilding_03_F","Land_SCF_01_storageBin_big_F","Land_SCF_01_storageBin_medium_F","Land_SCF_01_storageBin_small_F","Land_SCF_01_heap_bagasse_F","Land_Crane_F","Land_MobileCrane_01_F","Land_MobileCrane_01_hook_F","ContainerCrane_01"];
+		{
+			if ((count (_x buildingPos -1) <= _garrCount) || {((typeOf _x) in _bblackl)}) then 
+			{
+				_b2del pushBack _x;
+			};
+		} forEach _masterlist;
+		{
+			private _bDel = _masterlist find _x;
+			_masterlist deleteAt _bDel;
+		} forEach _b2del;
+	_masterlist
+};
 bro_fnc_automission_make = 
 {
-	params ["_selectedDisplayName","_factionClass"];
-	// STEP 2. SEND TO SERVER AND DO SHIT
+	params ["_selectedDisplayName","_factionClass","_objCount","_enemyDensity"];
+// Convert _enemyDensity to a meaningful value:
+	switch (_enemyDensity) do {
+		case 0: {_enemyDensity = floor random 4+1};
+		case 1: {_enemyDensity = 6};	// Low
+		case 2: {_enemyDensity = 4};	// Medium
+		case 3: {_enemyDensity = 2};	// High
+		default {_enemyDensity = floor random 4+1};
+	};
+// SEND TO SERVER AND DO SHIT
 	private _sideIndex = getNumber (configFile >> "CfgFactionClasses" >> _factionClass >> "side");
 	private _factionSide = [east, west, independent, civilian] select _sideIndex;
 	if (([_factionSide, west] call BIS_fnc_sideIsEnemy) == false) then 
@@ -28,25 +57,23 @@ bro_fnc_automission_make =
 	private _allConfigs = configFile >> "CfgVehicles";
 	allVics = [];
 	{
-		private _cfg = _x;
-		private _isMan = getNumber (_cfg >> "isMan") == 0;
-		private _isCar = getText (_cfg >> "vehicleClass") == "Car";
-		private _isPublic = getNumber (_cfg >> "scope") == 2;
-		if (_isMan && _isCar && (getText (_cfg >> "faction") == _factionClass) && _isPublic) then 
+		private _isMan = getNumber (_x >> "isMan") == 0;
+		private _isCar = getText (_x >> "vehicleClass") == "Car";
+		private _isPublic = getNumber (_x >> "scope") == 2;
+		if (_isMan && _isCar && (getText (_x >> "faction") == _factionClass) && _isPublic) then 
 		{
-			allVics pushBack (configName _cfg);
+			allVics pushBack (configName _x);
 		};
 	} forEach ("true" configClasses _allConfigs);
 	armedVics = [];
 	{
-		private _cfg = _x;
-		private _isMan = getNumber (_cfg >> "isMan") == 0;
-		private _isCar = getText (_cfg >> "vehicleClass") == "Car";
-		private _isPublic = getNumber (_cfg >> "scope") == 2;
-		if (_isMan && _isCar && (getText (_cfg >> "faction") == _factionClass) && _isPublic) then 
+		private _isMan = getNumber (_x >> "isMan") == 0;
+		private _isCar = getText (_x >> "vehicleClass") == "Car";
+		private _isPublic = getNumber (_x >> "scope") == 2;
+		if (_isMan && _isCar && (getText (_x >> "faction") == _factionClass) && _isPublic) then 
 		{
 			private _hasWeapons = false;
-			private _turrets = _cfg >> "Turrets";
+			private _turrets = _x >> "Turrets";
 			for "_i" from 0 to (count _turrets - 1) do 
 			{
 				private _turret = _turrets select _i;
@@ -55,7 +82,7 @@ bro_fnc_automission_make =
 			};
 			if (_hasWeapons) then 
 			{
-				armedVics pushBack (configName _cfg);
+				armedVics pushBack (configName _x);
 			};
 		};
 	} forEach ("true" configClasses _allConfigs);
@@ -69,57 +96,16 @@ bro_fnc_automission_make =
 		} forEach ObjectiveVehicles;
 	};
 	{deleteVehicle _x} forEach AllDeadMen;
-	// Minimum number of garrisonable positions in a building to be eligible:
-	garrCount = 2;
-	// If BuildingMasterList is nil (which it is in this case), then create the list:
-	if (isNil "BuildingMasterList") then
-	{
-	// Make master list of all buildings on map:
-		BuildingMasterList = nearestObjects [[(worldSize/2),(worldSize/2)],["HOUSE"],(worldSize / 2),true];
-	// If a building has <= X number of garrison positions defined in garrCount, add it to this array to get deleted from the master list later:
-		private _buildingsToDelete = [];
-	// Iterate through each building- if no other eligible buildings within 150m, add to removal list:
-		{
-			if (count (_x buildingPos -1) <= garrCount) then 
-			{
-				_buildingsToDelete pushBack _x;
-			};
-		} forEach BuildingMasterList;
-	// Find and remove each ineligible building from the master list:
-		{
-			private _deleteBuilding = BuildingMasterList find _x;
-			BuildingMasterList deleteAt _deleteBuilding;
-		} forEach _buildingsToDelete;
-	// Iterate through remaining buildings and if more than 150m away from nearest building, remove it:
-		_buildingsToDelete = [];
-		{
-			private _b = _x;
-			// All other buildings (excluding this one)
-			private _others = BuildingMasterList - [_b];
-			// Find nearby buildings from the others
-			private _nearOthers = _others select {_b distance _x <= 150};
-			// If no nearby buildings found, mark for deletion
-			if (count _nearOthers < 3) then
-			{
-				_buildingsToDelete pushBack _b;
-			};
-		} forEach BuildingMasterList;
-	// Remove them from the master list too:
-		{
-			private _deleteBuilding = BuildingMasterList find _x;
-			BuildingMasterList deleteAt _deleteBuilding;
-		} forEach _buildingsToDelete;
-		systemChat format ["%1 eligible objective buildings detected.",count BuildingMasterList];
-	};
-	// Develop objCount number of objectives across map:
+	_BuildingMasterList = [_enemyDensity] call bro_fnc_buildingFinder;
+// Develop objCount number of objectives across map:
 	Objectives = [];
 	ObjectiveCaches = [];
 	ObjectiveVehicles = [];
-	for "_i" from 1 to objCount do
+	for "_i" from 1 to _objCount do
 	{
-		Objectives pushbackUnique (selectRandom BuildingMasterList);
+		Objectives pushbackUnique (selectRandom _BuildingMasterList);
 	};
-	// CREATE OBJECTIVES!!!:
+// CREATE OBJECTIVES!!!:
 	SpawnedEnemyMasterList = [];
 	{
 		_enemyGroup = nil;
@@ -134,8 +120,8 @@ bro_fnc_automission_make =
 		// Decide how many buildings to populate (3–7 per objective):
 		private _numObjectives = floor random 4 + 3;
 		_selBldg = _x;
-		// Sort BuildingMasterList by distance to first building:
-		private _sortedBuildings = BuildingMasterList apply { [_x, _x distance2D _selBldg] };
+		// Sort _BuildingMasterList by distance to first building:
+		private _sortedBuildings = _BuildingMasterList apply { [_x, _x distance2D _selBldg] };
 		_sortedBuildings sort true;
 		// Extract closest _numObjectives buildings
 		_selectedObjBuildings = (_sortedBuildings select [0, _numObjectives]) apply { _x select 0 };
@@ -151,7 +137,7 @@ bro_fnc_automission_make =
 	// SPAWN UNITS IN SELECTED OBJ BUILDINGS:
 		{
 			numPos = _x buildingPos -1;
-			for [{_i = 1},{_i<=(count numPos - 1)},{_i=_i+(floor random 2+1)}] do
+			for [{_i = 1},{_i<=(count numPos - 1)},{_i=_i+_enemyDensity}] do
 			{
 				_nextpos = numPos deleteAt floor random (count numPos);
 				_unitType = selectRandom enemyInfantry;
@@ -211,7 +197,7 @@ bro_fnc_automission_make =
 			} forEach [objVic,objVic2,objVic3];
 		};
 	} forEach Objectives;
-	// DEBUG LINES: Output
+// DEBUG LINES: Output
 	if (count armedVics == 0 && count allVics == 0) then 
 	{
 		systemChat format ["%1 has no eligible vehicles to spawn.",_selectedDisplayName];
@@ -220,22 +206,28 @@ bro_fnc_automission_make =
 };
 bro_fnc_automission_select = 
 {
-	systemChat "Notice from Automission: When you spawn the objective(s), your game will lag for a bit. This only happens the first time this is used per session as the function needs to index all eligible buildings to spawn objectives on. You'll be alright, just give it a few moments.";
 	disableSerialization;
-	// Create a simple display
+// FACTION PICKER
 	private _display = findDisplay 46 createDisplay "RscDisplayEmpty";
 	// Background
 	private _background = _display ctrlCreate ["RscText", 1000];
-	_background ctrlSetPosition [0.3, 0.2, 0.4, 0.5];
+	_background ctrlSetPosition [0.3, 0.2, 0.4, 0.7];
 	_background ctrlSetBackgroundColor [0,0,0,0.7];
 	_background ctrlCommit 0;
+	// Label
+	private _factionLabel = _display ctrlCreate ["RscText", 1001];
+	_factionLabel ctrlSetText "Faction to spawn:";
+	_factionLabel ctrlSetPosition [0.31, 0.21, 0.38, 0.05];
+	_factionLabel ctrlSetBackgroundColor [0,0,0,0];
+	_factionLabel ctrlSetTextColor [1,1,1,1];
+	_factionLabel ctrlCommit 0;
 	// Listbox
 	private _listbox = _display ctrlCreate ["RscListbox", 1500];
-	_listbox ctrlSetPosition [0.32, 0.25, 0.36, 0.35];
+	_listbox ctrlSetPosition [0.32, 0.26, 0.36, 0.35];
 	_listbox ctrlCommit 0;
 	// Button
 	private _button = _display ctrlCreate ["RscButton", 1600];
-	_button ctrlSetPosition [0.4, 0.62, 0.2, 0.05];
+	_button ctrlSetPosition [0.4, 0.82, 0.2, 0.05];
 	_button ctrlSetText "Select";
 	_button ctrlCommit 0;
 	// Get OPFOR and INDFOR factions
@@ -258,11 +250,19 @@ bro_fnc_automission_select =
 		if (_side == 2) then { _color = [0,1,0,1] };     // green for INDFOR
 		_listbox lbSetColor [_index, _color];
 	} forEach _factionPairs;
-	
-	// TEST OBJ COUNT SELECTOR:
+	_listbox lbSetCurSel 0; // Default to First in list
+
+// OBJ COUNT SELECTOR:
+	// Label
+	private _countLabel = _display ctrlCreate ["RscText", 1002];
+	_countLabel ctrlSetText "Number of objectives:";
+	_countLabel ctrlSetPosition [0.31, 0.62, 0.38, 0.05];
+	_countLabel ctrlSetBackgroundColor [0,0,0,0];
+	_countLabel ctrlSetTextColor [1,1,1,1];
+	_countLabel ctrlCommit 0;
 	// Combo box to select objective count (Random, 1–10)
 	private _combo = _display ctrlCreate ["RscCombo", 1550];
-	_combo ctrlSetPosition [0.32, 0.61, 0.36, 0.035];
+	_combo ctrlSetPosition [0.32, 0.67, 0.36, 0.035];
 	_combo ctrlCommit 0;
 	// Populate combo with options
 	_combo lbAdd "Random";
@@ -272,17 +272,34 @@ bro_fnc_automission_select =
 	};
 	_combo lbSetCurSel 0; // Default to Random
 
+// ENEMY DENSITY:
+	// Label
+	private _nmeLabel = _display ctrlCreate ["RscText", 1003];
+	_nmeLabel ctrlSetText "Enemy density:";
+	_nmeLabel ctrlSetPosition [0.31, 0.72, 0.38, 0.05];
+	_nmeLabel ctrlSetBackgroundColor [0,0,0,0];
+	_nmeLabel ctrlSetTextColor [1,1,1,1];
+	_nmeLabel ctrlCommit 0;
+	// Combo box
+	private _nmecombo = _display ctrlCreate ["RscCombo", 1551];
+	_nmecombo ctrlSetPosition [0.32, 0.77, 0.36, 0.035];
+	_nmecombo ctrlCommit 0;
+	// Combo options
+	_nmecombo lbAdd "Random";
+	_nmecombo lbAdd "Low";
+	_nmecombo lbAdd "Medium";
+	_nmecombo lbAdd "High";
+	_nmecombo lbSetCurSel 0; // Default to Random
+
 	// --- Closure to capture _factionPairs ---
 	private _factionPairsCopy = +_factionPairs;
 	_button ctrlAddEventHandler ["ButtonClick", 
 	{
-		disableSerialization;
 		params ["_ctrl"];
 		private _disp = ctrlParent _ctrl;
 		private _list = _disp displayCtrl 1500;
 		private _selectedIndex = lbCurSel _list;
 		private _selectedDisplayName = _list lbText _selectedIndex;
-
 		private _factionClass = call
 		{
 			{
@@ -293,29 +310,29 @@ bro_fnc_automission_select =
 				};
 			} forEach ("true" configClasses (configFile >> "CfgFactionClasses"));
 		};
-/*
-		private _factionClass = "";
-		{
-			private _displayName = getText (_x >> "displayName");
-			if (_displayName == _selectedDisplayName) exitWith 
-			{
-				_factionClass = configName _x;
-			};
-		} forEach ("true" configClasses (configFile >> "CfgFactionClasses"));
-*/
-		// TEST: Obj Count selector
 		private _comboCtrl = _disp displayCtrl 1550;
 		private _comboSel = lbCurSel _comboCtrl;
+		private _objCount = 3;
 		if (_comboSel == 0) then 
 		{
-			objCount = floor random 6 + 2; // Default random behavior
+			_objCount = floor random 6 + 2; // Default random behavior
 		} 
 		else 
 		{
-			objCount = _comboSel; // 1–10 (index matches value)
+			_objCount = _comboSel; // 1–10 (index matches value)
 		};
-		[_selectedDisplayName,_factionClass] remoteExecCall ["bro_fnc_automission_make", 2];
-		systemChat format ["Selected Faction: %1 (%2)", _selectedDisplayName, _factionClass];	// DEBUG LINE
+
+		private _nmecomboCtrl = _disp displayCtrl 1551;
+		private _nmecomboSel = lbCurSel _nmecomboCtrl;
+		private _enemyDensity = 3;
+		if (_nmecomboSel == 0) then 
+		{
+			_enemyDensity = floor random 2;
+		} else {
+			_enemyDensity = _nmecomboSel;
+		};
+		[_selectedDisplayName,_factionClass,_objCount,_enemyDensity] remoteExecCall ["bro_fnc_automission_make", 2];
+		systemChat format ["Selected Faction: %1 (%2), ObjCount: %3, EnemyDensity: %4", _selectedDisplayName, _factionClass, _objCount,_enemyDensity];	// DEBUG LINE
 		_disp closeDisplay 1;
 	}]
 };
