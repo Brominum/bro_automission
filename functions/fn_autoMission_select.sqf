@@ -1,3 +1,4 @@
+_logic = _this select 0;
 disableSerialization;
 private _display = findDisplay 46 createDisplay "RscDisplayEmpty";
 private _background = _display ctrlCreate ["RscText", 1000];
@@ -64,6 +65,7 @@ private _nmecombo = _display ctrlCreate ["RscCombo", 1551];
 	_nmecombo lbAdd "Low";
 	_nmecombo lbAdd "Medium";
 	_nmecombo lbAdd "High";
+	_nmecombo lbAdd "Maximum";
 	_nmecombo lbSetCurSel 0;
 private _factionPairsCopy = +_factionPairs;
 _button ctrlAddEventHandler ["ButtonClick", 
@@ -88,7 +90,7 @@ _button ctrlAddEventHandler ["ButtonClick",
 	private _objCount = 3;
 	if (_comboSel == 0) then 
 	{
-		_objCount = floor random 6 + 2;
+		_objCount = floor random 8 + 2;
 	} 
 	else 
 	{
@@ -99,7 +101,7 @@ _button ctrlAddEventHandler ["ButtonClick",
 	private _enemyDensity = 3;
 	if (_nmecomboSel == 0) then 
 	{
-		_enemyDensity = floor random 2;
+		_enemyDensity = 0;
 	} else {
 		_enemyDensity = _nmecomboSel;
 	};
@@ -107,3 +109,4 @@ _button ctrlAddEventHandler ["ButtonClick",
 	systemChat format ["Selected Faction: %1 (%2), ObjCount: %3, EnemyDensity: %4", _selectedDisplayName, _factionClass, _objCount,_enemyDensity];
 	_disp closeDisplay 1;
 }];
+deleteVehicle _logic;

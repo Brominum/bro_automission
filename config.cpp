@@ -37,6 +37,7 @@ class CfgFunctions  {
 			class autoMission_select {};
 			class buildingFinder {};
 			class setSkills {};
+			class reinforceObj {};
 		};
 	};
 };

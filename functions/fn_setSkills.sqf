@@ -1,10 +1,12 @@
-params ["_unit"];
+params [["_unit",objNull],["_disablePath",false]];
+if (_disablePath) then {
+	_unit disableAI "PATH";
+};
 _unit setBehaviour "SAFE";
 _unit setunitpos "UP";
-{_unit setSkill _x} forEach 
-[
+{_unit setSkill _x} forEach [
 	["spotTime", 0.5],
-	["aimingAccuracy", 0.1],
+	["aimingAccuracy", 0.2],
 	["aimingShake", 0.25],
 	["aimingSpeed", 0.3],
 	["spotDistance", 0.5],

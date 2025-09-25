@@ -1,10 +1,11 @@
 params ["_selectedDisplayName","_factionClass","_objCount","_enemyDensity"];
 switch (_enemyDensity) do {
-	case 0: {_enemyDensity = floor random 4+1};
+	case 0: {_enemyDensity = floor random 4+2};
 	case 1: {_enemyDensity = 6};
 	case 2: {_enemyDensity = 4};
 	case 3: {_enemyDensity = 2};
-	default {_enemyDensity = floor random 4+1};
+	case 4: {_enemyDensity = 1};
+	default {_enemyDensity = floor random 4+2};
 };
 private _sideIndex = getNumber (configFile >> "CfgFactionClasses" >> _factionClass >> "side");
 private _factionSide = [east, west, independent, civilian] select _sideIndex;
@@ -12,63 +13,56 @@ if (([_factionSide, west] call BIS_fnc_sideIsEnemy) == false) then
 {
 	_factionSide setFriend [west, 0];
 	west setFriend [_factionSide, 0];
-	systemChat format ["%1 is the selected faction, and is now hostile to BLUFOR.", _selectedDisplayName];
 };
 {deleteMarkerLocal _x} forEach allMapMarkers;
 enemyInfantry = [];
-{
-	if 
-	(
-		getText (_x >> "faction") == _factionClass 
-		&& {getNumber (_x >> "isMan") == 1} 
-		&& {getNumber (_x >> "scope") == 2}
-	) then 
-	{
-		enemyInfantry pushBack (configName _x);
-	};
-} forEach ("true" configClasses (configFile >> "CfgVehicles"));
-private _allConfigs = configFile >> "CfgVehicles";
 allVics = [];
-{
-	private _isMan = getNumber (_x >> "isMan") == 0;
-	private _isCar = getText (_x >> "vehicleClass") == "Car";
-	private _isPublic = getNumber (_x >> "scope") == 2;
-	if (_isMan && _isCar && (getText (_x >> "faction") == _factionClass) && _isPublic) then 
-	{
-		allVics pushBack (configName _x);
-	};
-} forEach ("true" configClasses _allConfigs);
 armedVics = [];
+private _allConfigs = "true" configClasses (configFile >> "CfgVehicles");
 {
-	private _isMan = getNumber (_x >> "isMan") == 0;
-	private _isCar = getText (_x >> "vehicleClass") == "Car";
-	private _isPublic = getNumber (_x >> "scope") == 2;
-	if (_isMan && _isCar && (getText (_x >> "faction") == _factionClass) && _isPublic) then 
-	{
-		private _hasWeapons = false;
-		private _turrets = _x >> "Turrets";
-		for "_i" from 0 to (count _turrets - 1) do 
-		{
-			private _turret = _turrets select _i;
-			private _weapons = getArray (_turret >> "weapons");
-			if (count _weapons > 0) exitWith { _hasWeapons = true };
-		};
-		if (_hasWeapons) then 
-		{
-			armedVics pushBack (configName _x);
+	private _faction   = getText (_x >> "faction");
+	private _isMan	 = getNumber (_x >> "isMan") == 1;
+	private _isPublic  = getNumber (_x >> "scope") == 2;
+	// filter by faction + scope first
+	if (_faction == _factionClass && _isPublic) then {
+		if (_isMan) then {
+			// infantry unit
+			enemyInfantry pushBack (configName _x);
+		} else {
+			// non-man vehicles, checked by making sure it has 1 or more wheels, is not a UAV, is not a heli, and is not a tank:
+			private _isCar = (getNumber (_x >> "numberPhysicalWheels") >= 1
+				&& getNumber (_x >> "type") != 2
+				&& getNumber (_x >> "isUav") != 1
+				&& getText (_x >> "simulation") != "tankx"
+			);
+			if (_isCar) then {
+				private _vehName = configName _x;
+				allVics pushBack _vehName;
+			};
 		};
 	};
-} forEach ("true" configClasses _allConfigs);
+} forEach _allConfigs;
+{
+	private _turretArray = [_x,array] call BIS_fnc_getTurrets;
+	if (str _turretArray find "MainTurret" != -1) then {
+		armedVics pushback _x;
+	};
+} forEach allVics;
 if (!isNil "ObjectiveCaches") then
 {
-	systemChat format ["Removing: %1 units, %2 caches, %3 vehicles.",count SpawnedEnemyMasterList,count ObjectiveCaches,count ObjectiveVehicles];
+	systemChat format ["Removed: %1 units, %2 caches, %3 vehicles.",count SpawnedEnemyMasterList,count ObjectiveCaches,count ObjectiveVehicles];
 	{deleteVehicle _x} forEach ObjectiveCaches+SpawnedEnemyMasterList+ObjectiveVehicles;
 	{
 		deleteVehicleCrew _x;
 	} forEach ObjectiveVehicles;
 };
+if (!isNil "allReinforcements") then
+{
+	systemChat format ["Removed: %1 reinforcements.",count allReinforcements];
+	{deleteVehicle _x} forEach allReinforcements;
+};
 {deleteVehicle _x} forEach AllDeadMen;
-_BuildingMasterList = [_enemyDensity] call bro_fnc_buildingFinder;
+_BuildingMasterList = [] call bro_fnc_buildingFinder;
 Objectives = [];
 ObjectiveCaches = [];
 ObjectiveVehicles = [];
@@ -78,12 +72,6 @@ for "_i" from 1 to _objCount do
 };
 SpawnedEnemyMasterList = [];
 {
-/* Not needed?
-	_enemyGroup = nil;
-	_enemyGroup2 = nil;
-	_enemyGroup3 = nil;
-	_enemyGroup4 = nil;
-*/
 	private _enemyGroup = createGroup _factionSide;
 	private _enemyGroup2 = createGroup _factionSide;
 	private _enemyGroup3 = createGroup _factionSide;
@@ -108,7 +96,7 @@ SpawnedEnemyMasterList = [];
 			_nextpos = numPos deleteAt floor random (count numPos);
 			_unitType = selectRandom enemyInfantry;
 			_enemySpawned = _enemyGroup createUnit [_unitType,_nextpos,[],0,"CAN_COLLIDE"];
-			_enemySpawned setSkill ["spotTime", 0.5];_enemySpawned setSkill ["aimingAccuracy", 0.01];_enemySpawned setSkill ["aimingShake", 0.5];_enemySpawned setSkill ["aimingSpeed", 0.3];_enemySpawned setSkill ["spotDistance", 0.5];_enemySpawned setSkill ["courage", 1.0];_enemySpawned setSkill ["commanding", 1.0];_enemySpawned setSkill ["general", 0.15];_enemySpawned disableAI "PATH";_enemySpawned setBehaviour "SAFE";_enemySpawned setunitpos "UP";
+			[_enemySpawned,true] call bro_fnc_setSkills;
 			SpawnedEnemyMasterList pushBack _enemySpawned;
 		};
 	} forEach _selectedObjBuildings + [_x];
@@ -121,14 +109,14 @@ SpawnedEnemyMasterList = [];
 	for "_i" from 1 to (floor random 4+2) do
 	{
 		_enemySpawned = _enemyGroup2 createUnit [(selectRandom enemyInfantry),_patrolSpawn,[],10,"CAN_COLLIDE"];
-		[_enemySpawned] call bro_fnc_setBasicSkills;
+		[_enemySpawned,false] call bro_fnc_setSkills;
 		SpawnedEnemyMasterList pushBack _enemySpawned;
 	};
 	[_enemyGroup2, (getPosATL _x), (floor random 25+20)] call bis_fnc_taskPatrol;
 	for "_i" from 1 to (floor random 4+2) do
 	{
 		_enemySpawned = _enemyGroup3 createUnit [(selectRandom enemyInfantry),_patrolSpawn,[],10,"CAN_COLLIDE"];
-		[_enemySpawned] call bro_fnc_setBasicSkills;
+		[_enemySpawned,false] call bro_fnc_setSkills;
 		SpawnedEnemyMasterList pushBack _enemySpawned;
 	};
 	[_enemyGroup3, (getPosATL _x), (floor random 80+60)] call bis_fnc_taskPatrol;
@@ -164,3 +152,27 @@ if (count armedVics == 0 && count allVics == 0) then
 	systemChat format ["%1 has no eligible vehicles to spawn.",_selectedDisplayName];
 };
 systemChat format ["%1 new objectives created.",count Objectives];
+
+// Reinforcements test:
+// Spawn a trigger where, when Blufor is detected by faction, it runs the reinforcements function and deletes the trigger:
+if (!isNil "ObjectiveTriggers") then
+{
+	systemChat format ["Removed: %1 reinf triggers.",count ObjectiveTriggers];
+	{deleteVehicle _x} forEach ObjectiveTriggers;
+};
+_facDetect = "";
+switch (_factionSide) do {
+	case east: {_facDetect = "EAST D"};
+	case independent: {_facDetect = "GUER D"};
+	default {_facDetect = "EAST D"};
+};
+ObjectiveTriggers = [];
+allReinforcements = [];
+{
+	private _ReinfTrg = createTrigger ["EmptyDetector",getPos _x];
+	private _triggerString = format ["[%1,%2] remoteExec ['bro_fnc_reinforceObj', 2];systemChat 'Detector fired';",getPos _x,str _factionClass];
+	_ReinfTrg setTriggerArea [150, 150, 0, true];
+	_ReinfTrg setTriggerActivation ["WEST",_facDetect,false];
+	_ReinfTrg setTriggerStatements ["this && west countSide thisList > 0 ",_triggerString,""];
+	ObjectiveTriggers pushBack _ReinfTrg;
+} forEach Objectives;

@@ -1,5 +1,5 @@
 	params [["_garrCount",6]];
-	systemChat format ["garrCount value: %1",_garrCount];	// DEBUG LINE
+	systemChat format ["Min. garrison positions value: %1",_garrCount];	// DEBUG LINE
 		if (_garrCount < 2) exitWith {
 			systemChat "Garrison count needs to be 2 or higher. Function aborted.";
 		};
