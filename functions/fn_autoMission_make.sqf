@@ -1,4 +1,4 @@
-params ["_selectedDisplayName","_factionClass","_objCount","_enemyDensity"];
+params ["_selectedDisplayName","_factionClass","_objCount","_enemyDensity", ["_missionTypeIndex", 0]];
 if (isNil "_selectedDisplayName" || isNil "_factionClass" || isNil "_objCount" || isNil "_enemyDensity") exitWith {
 	systemChat "ERROR: Missing required parameters for mission generation.";
 };
@@ -103,6 +103,9 @@ private _failedObjectives = 0;
 		private _tempMarkerIndex = format ["%1%2%3",_masterIndex,0,_forEachIndex+1];
 		_tempMarker1 setMarkerText _tempMarkerIndex;
 	} forEach (_selectedObjBuildings + [_x]);
+	
+	// SPAWN BUILDING DEFENDERS & COLLECT REMAINING POSITIONS
+	private _validBuildingPos = [];
 	private _spawnedInBuildings = 0;
 	{
 		private _numPos = _x buildingPos -1;
@@ -117,30 +120,98 @@ private _failedObjectives = 0;
 					_spawnedInBuildings = _spawnedInBuildings + 1;
 				};
 			};
+			// Store any unused positions for the objectives to use later
+			_validBuildingPos append _numPos;
 		};
 	} forEach (_selectedObjBuildings + [_x]);
+	
 	if (_spawnedInBuildings == 0) then {
 		systemChat format ["WARNING: Objective %1 failed to spawn any building defenders.",_masterIndex];
 	};
-	private _validBuildingPos = [];
-	{
-		private _bPos = _x buildingPos -1;
-		if (count _bPos > 0) then {
-			_validBuildingPos append _bPos;
-		};
-	} forEach (_selectedObjBuildings + [_x]);
-	if (count _validBuildingPos > 0) then {
-		private _objCacheAttacher = "Land_HelipadEmpty_F" createVehicle (selectRandom _validBuildingPos);
-		private _objCache = (selectRandom _cacheTypes) createVehicle [0,0,100];
-		_objCache attachTo [_objCacheAttacher,[0,0,2]];
-		detach _objCache;
-		deleteVehicle _objCacheAttacher;
-		ObjectiveCaches pushBack _objCache;
-	} else {
-		systemChat format ["WARNING: Objective %1 has no valid building positions for cache, spawning at ground level.",_masterIndex];
-		private _objCache = (selectRandom _cacheTypes) createVehicle _objPos;
-		ObjectiveCaches pushBack _objCache;
+	
+	// --- DETERMINE OBJECTIVE TYPE ---
+	// 0 = Random, 1 = Cache, 2 = Hostage
+	private _thisObjType = _missionTypeIndex;
+	if (_missionTypeIndex == 0) then {
+		// If random, pick between 1 and 2
+		_thisObjType = selectRandom [1, 2];
 	};
+	
+	// --- HOSTAGE LOGIC ---
+	if (_thisObjType == 2) then {
+		if (count _validBuildingPos > 0) then {
+			private _hostageCount = floor random 3 + 1;
+			for "_h" from 1 to _hostageCount do {
+				if (count _validBuildingPos == 0) exitWith {};
+				private _hPos = _validBuildingPos deleteAt (floor random (count _validBuildingPos));
+				
+				private _grpCiv = createGroup civilian;
+				// Use generic civilian or allow customization
+				private _civType = selectRandom ["C_Man_casual_1_F","C_man_p_beggar_F","C_man_polo_1_F"];
+				private _hostage = _grpCiv createUnit [_civType, _hPos, [], 0, "CAN_COLLIDE"];
+				
+				removeGoggles _hostage;
+				_hostage addGoggles "G_Blindfold_01_black_F";
+				
+				_hostage setCaptive true;
+				_hostage setDir (random 360);
+				// Disable pathing so they don't wander off, but can still animate
+				_hostage disableAI "PATH"; 
+				// Animation: Sitting, Hands on head
+				_hostage switchMove "Acts_AidlPsitMstpSsurWnonDnon_loop";
+				
+				// Add Hold Action (Global)
+				[
+					_hostage,
+					"Free Hostage",
+					"\a3\ui_f\data\IGUI\Cfg\holdactions\holdAction_unbind_ca.paa",
+					"\a3\ui_f\data\IGUI\Cfg\holdactions\holdAction_unbind_ca.paa",
+					"_this distance _target < 2",
+					"_caller distance _target < 2",
+					{},
+					{},
+					{
+						params ["_target", "_caller", "_actionId", "_arguments"];
+						// Hostage Freed Logic
+						_target switchMove ""; // Stand up
+						_target enableAI "ANIM";
+						_target disableAI "PATH"; // Keep path disabled as requested
+						// _target setCaptive false; // Optional: Keep captive so AI ignores them?
+						["Hostage Freed!", "PLAIN", 0.5] remoteExec ["titleText", _caller];
+						removeAllActions _target;
+					},
+					{},
+					[],
+					5, // 5 Seconds duration
+					0,
+					true,
+					false
+				] remoteExec ["BIS_fnc_holdActionAdd", 0, _hostage]; // JIP enabled
+				
+				ObjectiveCaches pushBack _hostage; // Add to cleanup list (reusing Cache list for simplicity)
+			};
+		} else {
+			systemChat format ["WARNING: Objective %1 has no valid positions for Hostages.",_masterIndex];
+		};
+	};
+
+	// --- CACHE LOGIC ---
+	if (_thisObjType == 1) then {
+		if (count _validBuildingPos > 0) then {
+			private _objCacheAttacher = "Land_HelipadEmpty_F" createVehicle (selectRandom _validBuildingPos);
+			private _objCache = (selectRandom _cacheTypes) createVehicle [0,0,100];
+			_objCache attachTo [_objCacheAttacher,[0,0,2]];
+			detach _objCache;
+			deleteVehicle _objCacheAttacher;
+			ObjectiveCaches pushBack _objCache;
+		} else {
+			systemChat format ["WARNING: Objective %1 has no valid building positions for cache, spawning at ground level.",_masterIndex];
+			private _objCache = (selectRandom _cacheTypes) createVehicle _objPos;
+			ObjectiveCaches pushBack _objCache;
+		};
+	};
+	
+	// SPAWN EXTERIOR PATROLS
 	for "_i" from 1 to (floor random 4+2) do {
 		private _enemySpawned = _enemyGroup2 createUnit [(selectRandom enemyInfantry),_patrolSpawn,[],10,"CAN_COLLIDE"];
 		if (!isNull _enemySpawned) then {

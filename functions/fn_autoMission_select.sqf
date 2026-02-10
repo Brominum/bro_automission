@@ -2,7 +2,7 @@ _logic = _this select 0;
 disableSerialization;
 private _display = findDisplay 46 createDisplay "RscDisplayEmpty";
 private _background = _display ctrlCreate ["RscText", 1000];
-	_background ctrlSetPosition [0.3, 0.2, 0.4, 0.7];
+	_background ctrlSetPosition [0.3, 0.2, 0.4, 0.8];
 	_background ctrlSetBackgroundColor [0,0,0,0.7];
 	_background ctrlCommit 0;
 private _factionLabel = _display ctrlCreate ["RscText", 1001];
@@ -15,7 +15,7 @@ private _listbox = _display ctrlCreate ["RscListbox", 1500];
 	_listbox ctrlSetPosition [0.32, 0.26, 0.36, 0.35];
 	_listbox ctrlCommit 0;
 private _button = _display ctrlCreate ["RscButton", 1600];
-	_button ctrlSetPosition [0.4, 0.82, 0.2, 0.05];
+	_button ctrlSetPosition [0.4, 0.92, 0.2, 0.05];
 	_button ctrlSetText "Select";
 	_button ctrlCommit 0;
 private _factionPairs = [];
@@ -36,7 +36,17 @@ private _factionPairs = [];
 	if (_side == 2) then { _color = [0,1,0,1] };
 	_listbox lbSetColor [_index, _color];
 } forEach _factionPairs;
-_listbox lbSetCurSel 0;
+
+// Load Saved Faction
+private _lastFaction = profileNamespace getVariable ["bro_missionGen_lastFaction", ""];
+private _selIndex = 0;
+if (_lastFaction != "") then {
+	{
+		if ((_x select 1) == _lastFaction) exitWith { _selIndex = _forEachIndex; };
+	} forEach _factionPairs;
+};
+_listbox lbSetCurSel _selIndex;
+
 private _countLabel = _display ctrlCreate ["RscText", 1002];
 	_countLabel ctrlSetText "Number of objectives:";
 	_countLabel ctrlSetPosition [0.31, 0.62, 0.38, 0.05];
@@ -51,7 +61,9 @@ private _combo = _display ctrlCreate ["RscCombo", 1550];
 	{
 		_combo lbAdd str _i;
 	};
-	_combo lbSetCurSel 0;
+// Load Saved Objective Count
+_combo lbSetCurSel (profileNamespace getVariable ["bro_missionGen_lastObjCount", 0]);
+
 private _nmeLabel = _display ctrlCreate ["RscText", 1003];
 	_nmeLabel ctrlSetText "Enemy density:";
 	_nmeLabel ctrlSetPosition [0.31, 0.72, 0.38, 0.05];
@@ -66,7 +78,24 @@ private _nmecombo = _display ctrlCreate ["RscCombo", 1551];
 	_nmecombo lbAdd "Medium";
 	_nmecombo lbAdd "High";
 	_nmecombo lbAdd "Maximum";
-	_nmecombo lbSetCurSel 0;
+// Load Saved Enemy Density
+_nmecombo lbSetCurSel (profileNamespace getVariable ["bro_missionGen_lastDensity", 0]);
+
+private _typeLabel = _display ctrlCreate ["RscText", 1004];
+	_typeLabel ctrlSetText "Mission Type:";
+	_typeLabel ctrlSetPosition [0.31, 0.82, 0.38, 0.05];
+	_typeLabel ctrlSetBackgroundColor [0,0,0,0];
+	_typeLabel ctrlSetTextColor [1,1,1,1];
+	_typeLabel ctrlCommit 0;
+private _typeCombo = _display ctrlCreate ["RscCombo", 1552];
+	_typeCombo ctrlSetPosition [0.32, 0.87, 0.36, 0.035];
+	_typeCombo ctrlCommit 0;
+	_typeCombo lbAdd "Random (Mixed)";
+	_typeCombo lbAdd "Destroy Caches";
+	_typeCombo lbAdd "Hostage Rescue";
+// Load Saved Mission Type
+_typeCombo lbSetCurSel (profileNamespace getVariable ["bro_missionGen_lastType", 0]);
+
 private _factionPairsCopy = +_factionPairs;
 _button ctrlAddEventHandler ["ButtonClick", 
 {
@@ -105,8 +134,19 @@ _button ctrlAddEventHandler ["ButtonClick",
 	} else {
 		_enemyDensity = _nmecomboSel;
 	};
-	[_selectedDisplayName,_factionClass,_objCount,_enemyDensity] remoteExecCall ["bro_fnc_automission_make", 2];
-	systemChat format ["Selected Faction: %1 (%2), ObjCount: %3, EnemyDensity: %4", _selectedDisplayName, _factionClass, _objCount,_enemyDensity];
+	
+	private _typeComboCtrl = _disp displayCtrl 1552;
+	private _missionTypeIndex = lbCurSel _typeComboCtrl; 
+	
+	// SAVE SELECTIONS
+	profileNamespace setVariable ["bro_missionGen_lastFaction", _factionClass];
+	profileNamespace setVariable ["bro_missionGen_lastObjCount", _comboSel];
+	profileNamespace setVariable ["bro_missionGen_lastDensity", _nmecomboSel];
+	profileNamespace setVariable ["bro_missionGen_lastType", _missionTypeIndex];
+	saveProfileNamespace;
+
+	[_selectedDisplayName,_factionClass,_objCount,_enemyDensity, _missionTypeIndex] remoteExecCall ["bro_fnc_automission_make", 2];
+	systemChat format ["Selected Faction: %1 (%2), ObjCount: %3, Density: %4, Type: %5", _selectedDisplayName, _factionClass, _objCount, _enemyDensity, _missionTypeIndex];
 	_disp closeDisplay 1;
 }];
 deleteVehicle _logic;
