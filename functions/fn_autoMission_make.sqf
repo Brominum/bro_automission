@@ -39,6 +39,7 @@ if (!isNil "allReinforcements") then {
 if (!isNil "AllDeadMen") then {
 	{deleteVehicle _x} forEach AllDeadMen;
 };
+if (!isNil "Bro_MissionMarkers") then { {deleteMarker _x} forEach Bro_MissionMarkers; };
 
 // --- ASSET LISTS ---
 enemyInfantry = [];
@@ -106,6 +107,8 @@ Objectives = [];
 ObjectiveCaches = [];
 ObjectiveVehicles = [];
 SpawnedEnemyMasterList = [];
+Bro_MissionMarkers = [];
+
 for "_i" from 1 to _objCount do {
 	Objectives pushbackUnique (selectRandom _BuildingMasterList);
 };
@@ -129,13 +132,15 @@ private _failedObjectives = 0;
 	private _objPos = getPos _x;
 	if (count _objPos < 2) then { _failedObjectives = _failedObjectives + 1; continue; };
 	private _patrolSpawn = [(_objPos select 0) + 20,(_objPos select 1) + 20];
-	
-	// Create Markers
+
+	// ADD MARKERS
 	{
-		private _tempMarker1 = createMarker [str _x,position _x];
+		private _markerName = str _x;
+		private _tempMarker1 = createMarker [_markerName, position _x];
 		_tempMarker1 setMarkerType "Contact_dot1";
-		private _tempMarkerIndex = format ["%1%2%3",_masterIndex,0,_forEachIndex+1];
+		private _tempMarkerIndex = format ["%1%2%3", _masterIndex, 0, _forEachIndex+1];
 		_tempMarker1 setMarkerText _tempMarkerIndex;
+		Bro_MissionMarkers pushBack _markerName;
 	} forEach (_selectedObjBuildings + [_x]);
 	
 	// SPAWN DEFENDERS
