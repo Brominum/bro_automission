@@ -26,7 +26,7 @@ if (([_factionSide, west] call BIS_fnc_sideIsEnemy) == false) then {
 };
 
 // --- CLEANUP ---
-{deleteMarker _x} forEach allMapMarkers;
+if (!isNil "Bro_MissionMarkers") then { {deleteMarker _x} forEach Bro_MissionMarkers; };
 if (!isNil "ObjectiveCaches") then {
 	systemChat format ["Removed: %1 units, %2 caches, %3 vehicles.",count SpawnedEnemyMasterList,count ObjectiveCaches,count ObjectiveVehicles];
 	{deleteVehicle _x} forEach (ObjectiveCaches + SpawnedEnemyMasterList + ObjectiveVehicles);
